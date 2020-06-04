@@ -74,13 +74,11 @@ type IncidentsResponse map[string]interface{}
 
 // GetResults returns the incidents from the IncidentsResponse
 func (ir IncidentsResponse) GetResults() []Incident {
-	// results := ir["result"].([]interface{})
-	// incidents := make([]Incident, len(results))
-	// for i, result := range results {
-	// 	incidents[i] = result.(map[string]interface{})
-	// }
-	incidents := make([]Incident, 1)
-	incidents[0] = ir["result"].(map[string]interface{})
+	results := ir["result"].([]interface{})
+	incidents := make([]Incident, len(results))
+	for i, result := range results {
+		incidents[i] = result.(map[string]interface{})
+	}
 	return incidents
 }
 
@@ -135,7 +133,7 @@ func (snClient *ServiceNowClient) create(table string, body []byte) ([]byte, err
 // get a table item from ServiceNow using a map of arguments
 func (snClient *ServiceNowClient) get(table string, body []byte) ([]byte, error) {
 	url := fmt.Sprintf(tableAPI, snClient.baseURL, table)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating the request. %s", err)
 		return nil, err
@@ -219,7 +217,8 @@ func (snClient *ServiceNowClient) CreateIncident(incidentParam Incident) (Incide
 		log.Errorf("Error while unmarshalling the incident. %s", err)
 		return nil, err
 	}
-
+	log.Info(string(postBody))
+	log.Info(string(response))
 	createdIncident := incidentResponse.GetResult()
 	log.Infof("Incident %s created", createdIncident.GetNumber())
 
@@ -236,7 +235,7 @@ func (snClient *ServiceNowClient) GetIncidents(params map[string]string) ([]Inci
 		return nil, err
 	}
 
-	response, err := snClient.get("incident", postBody)
+	response, err := snClient.get("incident?sysparm_limit=1&active=true&correlation_id="+params["u_correlation_id"], postBody)
 
 	if err != nil {
 		log.Errorf("Error while getting the incident. %s", err)
