@@ -55,6 +55,20 @@ func (ir IncidentResponse) GetResult() Incident {
 	return incident
 }
 
+// CreateIncidentResponse is a model of an API response contaning one incident
+type CreateIncidentResponse map[string]interface{}
+
+// GetResult returns the incident from the IncidentResponse
+func (ir CreateIncidentResponse) GetResult() Incident {
+	results := ir["result"].([]interface{})
+	incidents := make([]Incident, len(results))
+	for i, result := range results {
+		incidents[i] = result.(map[string]interface{})
+	}
+	var incident Incident = incidents[0]
+	return incident
+}
+
 // UpdatedIncidentResponse is a model of an API response contaning one incident
 type UpdatedIncidentResponse map[string]interface{}
 
@@ -211,7 +225,7 @@ func (snClient *ServiceNowClient) CreateIncident(incidentParam Incident) (Incide
 		return nil, err
 	}
 
-	incidentResponse := IncidentResponse{}
+	incidentResponse := CreateIncidentResponse{}
 	err = json.Unmarshal(response, &incidentResponse)
 	if err != nil {
 		log.Errorf("Error while unmarshalling the incident. %s", err)
