@@ -31,7 +31,14 @@ func (i Incident) GetSysID() string {
 
 // GetNumber returns the number of the incident
 func (i Incident) GetNumber() string {
-	return i["number"].(string)
+	if val, ok := i["number"]; ok {
+		return val.(string)
+	}
+	if val, ok := i["display_value"]; ok {
+		return val.(string)
+	}
+
+	return ""
 }
 
 // GetState returns the state of the incident
@@ -48,16 +55,32 @@ func (ir IncidentResponse) GetResult() Incident {
 	return incident
 }
 
-// IncidentsResponse is a model of an API response contaning multiple incidents
-type IncidentsResponse map[string]interface{}
+// UpdatedIncidentResponse is a model of an API response contaning one incident
+type UpdatedIncidentResponse map[string]interface{}
 
-// GetResults returns the incidents from the IncidentsResponse
-func (ir IncidentsResponse) GetResults() []Incident {
+// GetResult returns the incident from the IncidentResponse
+func (ir UpdatedIncidentResponse) GetResult() Incident {
 	results := ir["result"].([]interface{})
 	incidents := make([]Incident, len(results))
 	for i, result := range results {
 		incidents[i] = result.(map[string]interface{})
 	}
+	var incident Incident = incidents[0]
+	return incident
+}
+
+// IncidentsResponse is a model of an API response contaning multiple incidents
+type IncidentsResponse map[string]interface{}
+
+// GetResults returns the incidents from the IncidentsResponse
+func (ir IncidentsResponse) GetResults() []Incident {
+	// results := ir["result"].([]interface{})
+	// incidents := make([]Incident, len(results))
+	// for i, result := range results {
+	// 	incidents[i] = result.(map[string]interface{})
+	// }
+	incidents := make([]Incident, 1)
+	incidents[0] = ir["result"].(map[string]interface{})
 	return incidents
 }
 
@@ -123,8 +146,8 @@ func (snClient *ServiceNowClient) get(table string, body []byte) ([]byte, error)
 
 // update a table item in ServiceNow from a post body and a sys_id
 func (snClient *ServiceNowClient) update(table string, body []byte, sysID string) ([]byte, error) {
-	url := fmt.Sprintf(importAPI+"/%s", snClient.baseURL, table, sysID)
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
+	url := fmt.Sprintf(importAPI, snClient.baseURL, table)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating the request. %s", err)
 		return nil, err
@@ -150,13 +173,15 @@ func (snClient *ServiceNowClient) doRequest(req *http.Request) ([]byte, error) {
 	if resp.StatusCode >= 400 {
 		errorMsg := fmt.Sprintf("ServiceNow returned the HTTP error code: %v", resp.StatusCode)
 		log.Error(errorMsg)
+		defer resp.Body.Close()
+		responseBody, _ := ioutil.ReadAll(resp.Body)
+		log.Info(string(responseBody))
 		return nil, errors.New(errorMsg)
 	}
 
 	defer resp.Body.Close()
 
 	responseBody, err := ioutil.ReadAll(resp.Body)
-
 	if err != nil {
 		log.Errorf("Error reading the body. %s", err)
 		return nil, err
@@ -244,14 +269,16 @@ func (snClient *ServiceNowClient) UpdateIncident(incidentParam Incident, sysID s
 		return nil, err
 	}
 
-	incidentResponse := IncidentResponse{}
-	err = json.Unmarshal(response, &incidentResponse)
+	// log.Info(string(response))
+
+	UpdatedIncidentResponse := UpdatedIncidentResponse{}
+	err = json.Unmarshal(response, &UpdatedIncidentResponse)
 	if err != nil {
 		log.Errorf("Error while unmarshalling the incident. %s", err)
 		return nil, err
 	}
 
-	updatedIncident := incidentResponse.GetResult()
+	updatedIncident := UpdatedIncidentResponse.GetResult()
 	log.Infof("Incident %s updated", updatedIncident.GetNumber())
 
 	return updatedIncident, nil

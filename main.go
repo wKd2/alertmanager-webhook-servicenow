@@ -405,6 +405,7 @@ func filterForUpdate(incident Incident) Incident {
 			incidentUpdate[field] = value
 		}
 	}
+	incidentUpdate["u_function"] = "Update"
 	return incidentUpdate
 }
 
