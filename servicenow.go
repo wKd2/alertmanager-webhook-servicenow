@@ -231,8 +231,8 @@ func (snClient *ServiceNowClient) CreateIncident(incidentParam Incident) (Incide
 		log.Errorf("Error while unmarshalling the incident. %s", err)
 		return nil, err
 	}
-	log.Infof("CREATE REQUEST: %s", string(postBody))
-	log.Infof("CREATE RESPONSE: %s", string(response))
+	// log.Infof("CREATE REQUEST: %s", string(postBody))
+	// log.Infof("CREATE RESPONSE: %s", string(response))
 	createdIncident := incidentResponse.GetResult()
 	// need to do something with status_message
 	log.Infof("Incident %s created", createdIncident.GetNumber())

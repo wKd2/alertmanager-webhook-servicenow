@@ -296,7 +296,6 @@ func loadSnClient() (ServiceNow, error) {
 }
 
 func onAlertGroup(data template.Data) error {
-
 	log.Infof("Received alert group: Status=%s, GroupLabels=%v, CommonLabels=%v, CommonAnnotations=%v",
 		data.Status, data.GroupLabels, data.CommonLabels, data.CommonAnnotations)
 
@@ -365,6 +364,8 @@ func onResolvedGroup(data template.Data, updatableIncident Incident) error {
 	}
 
 	incidentUpdateParam := filterForUpdate(incidentCreateParam)
+	incidentUpdateParam["u_state"] = "2"
+	incidentUpdateParam["u_work_notes"] = "Incident has been resolved."
 
 	if updatableIncident == nil {
 		log.Infof("Found no updatable incident for resolved alert group key: %s. No incident will be created/updated.", getGroupKey(data))
@@ -420,7 +421,15 @@ func filterUpdatableIncidents(incidents []Incident) []Incident {
 }
 
 func getGroupKey(data template.Data) string {
-	hash := md5.Sum([]byte(fmt.Sprintf("%v", data.GroupLabels.SortedPairs())))
+	// Use fingerprints as the group key instead
+	var Fingerprints string
+	for i := range data.Alerts {
+		Fingerprints += data.Alerts[i].Fingerprint
+	}
+	// log.Infof("ALERT FINGERPRINTS: %s", Fingerprints)
+
+	hash := md5.Sum([]byte(fmt.Sprintf("%vT6", Fingerprints))) // added a T1 for testing for now as these things are bloody unique in service now
+	// hash := md5.Sum([]byte(fmt.Sprintf("%va", data.GroupLabels.SortedPairs())))
 	return fmt.Sprintf("%x", hash)
 }
 
