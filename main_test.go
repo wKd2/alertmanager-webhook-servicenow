@@ -126,8 +126,8 @@ func TestWebhookHandler_Firing_Exists_Update_OK(t *testing.T) {
 	snClientMock.On("CreateIncident", mock.Anything).Return(Incident{}, errors.New("Create should not be called"))
 	snClientMock.On("UpdateIncident", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		incident := args.Get(0).(Incident)
-		if len(incident) != 2 {
-			t.Errorf("Wrong incident len: got %v, want %v", len(incident), 2)
+		if len(incident) != 1 {
+			t.Errorf("Wrong incident len: got %v, want %v", len(incident), 1)
 		}
 	}).Return(Incident{}, nil)
 

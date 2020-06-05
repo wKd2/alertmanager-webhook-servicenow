@@ -9,17 +9,6 @@ workflow:
   incident_update_fields: ["u_correlation_id","u_work_notes"]
 
 default_incident:
-  assignment_group: "{{.CommonAnnotations.assignment_group}}"
-  category: "Failure"
-  cmdb_ci: "{{.CommonAnnotations.cmdb_ci}}"
-  comments: "Alerts list:\n\n{{ range .Alerts }}[{{ .Status }}] {{.StartsAt}} {{.Labels.alertname}}\n{{.Annotations.description}}\n\n{{ end }}"
-  company: "{{.CommonAnnotations.company}}"
-  contact_type : "{{.CommonAnnotations.contact_type}}"
-  description: "Received alerts from AlertManager at {{.ExternalURL}} (\"{{.Receiver}}\" receiver configuration) with common descriptions:\n\n{{.CommonAnnotations.description}}"
-  impact: "2"
-  short_description: "Alerts from group: {{ range $key, $val := .GroupLabels}}{{ $key }}:{{ $val }} {{end}}"
-  subcategory: "Missing Part"
-  urgency: "{{.CommonAnnotations.urgency}}"
   u_category: "application"
   u_business_service: "Server"
   u_assignment_group: "TEMTOOLING"
