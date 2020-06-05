@@ -231,9 +231,10 @@ func (snClient *ServiceNowClient) CreateIncident(incidentParam Incident) (Incide
 		log.Errorf("Error while unmarshalling the incident. %s", err)
 		return nil, err
 	}
-	log.Info(string(postBody))
-	log.Info(string(response))
+	log.Infof("CREATE REQUEST: %s", string(postBody))
+	log.Infof("CREATE RESPONSE: %s", string(response))
 	createdIncident := incidentResponse.GetResult()
+	// need to do something with status_message
 	log.Infof("Incident %s created", createdIncident.GetNumber())
 
 	return createdIncident, nil
@@ -282,7 +283,8 @@ func (snClient *ServiceNowClient) UpdateIncident(incidentParam Incident, sysID s
 		return nil, err
 	}
 
-	// log.Info(string(response))
+	// log.Infof("UPDATE REQUEST: %s", string(postBody))
+	// log.Infof("UPDATE RESPONSE: %s", string(response))
 
 	UpdatedIncidentResponse := UpdatedIncidentResponse{}
 	err = json.Unmarshal(response, &UpdatedIncidentResponse)
