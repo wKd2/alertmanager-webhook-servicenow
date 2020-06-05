@@ -148,13 +148,28 @@ func webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = onAlertGroup(data)
+	// Need to raise an incident for each alert on service now
+	newdata := make(map[int]template.Data, len(data.Alerts))
+	for i, alert := range data.Alerts {
+		newdata[i] = data
+		newdata[i].Alerts[0] = alert
 
-	if err != nil {
-		log.Errorf("Error managing incident from alert : %v", err)
-		sendJSONResponse(w, http.StatusInternalServerError, err.Error())
-		return
+		err = onAlertGroup(newdata[i])
+
+		if err != nil {
+			log.Errorf("Error managing incident from alert : %v", err)
+			sendJSONResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
+
+	// err = onAlertGroup(data)
+
+	// if err != nil {
+	// 	log.Errorf("Error managing incident from alert : %v", err)
+	// 	sendJSONResponse(w, http.StatusInternalServerError, err.Error())
+	// 	return
+	// }
 
 	// Returns a 200 if everything went smoothly
 	sendJSONResponse(w, http.StatusOK, "Success")
@@ -296,8 +311,10 @@ func loadSnClient() (ServiceNow, error) {
 }
 
 func onAlertGroup(data template.Data) error {
-	log.Infof("Received alert group: Status=%s, GroupLabels=%v, CommonLabels=%v, CommonAnnotations=%v",
-		data.Status, data.GroupLabels, data.CommonLabels, data.CommonAnnotations)
+	// log.Infof("Received alert group: Status=%s, GroupLabels=%v, CommonLabels=%v, CommonAnnotations=%v",
+	// 	data.Status, data.GroupLabels, data.CommonLabels, data.CommonAnnotations)
+	log.Infof("Received alert: Status=%s, Labels=%v, Annotations=%v",
+		data.Alerts[0].Status, data.Alerts[0].Labels, data.Alerts[0].Annotations)
 
 	getParams := map[string]string{
 		config.Workflow.IncidentGroupKeyField: getGroupKey(data),
@@ -322,12 +339,12 @@ func onAlertGroup(data template.Data) error {
 		}
 	}
 
-	if data.Status == "firing" {
+	if data.Alerts[0].Status == "firing" {
 		return onFiringGroup(data, updatableIncident)
-	} else if data.Status == "resolved" {
+	} else if data.Alerts[0].Status == "resolved" {
 		return onResolvedGroup(data, updatableIncident)
 	} else {
-		log.Errorf("Unknown alert group status: %s", data.Status)
+		log.Errorf("Unknown alert group status: %s", data.Alerts[0].Status)
 	}
 
 	return nil
@@ -422,13 +439,15 @@ func filterUpdatableIncidents(incidents []Incident) []Incident {
 
 func getGroupKey(data template.Data) string {
 	// Use fingerprints as the group key instead
-	var Fingerprints string
-	for i := range data.Alerts {
-		Fingerprints += data.Alerts[i].Fingerprint
-	}
+	// only use fingerprint for first alert
+	// var Fingerprints string
+	// for i := range data.Alerts {
+	// 	Fingerprints += data.Alerts[i].Fingerprint
+	// }
 	// log.Infof("ALERT FINGERPRINTS: %s", Fingerprints)
 
-	hash := md5.Sum([]byte(fmt.Sprintf("%vT6", Fingerprints))) // added a T1 for testing for now as these things are bloody unique in service now
+	hash := md5.Sum([]byte(fmt.Sprintf("%vT11", data.Alerts[0].Fingerprint))) // added a T1 for testing for now as these things are bloody unique in service now
+	// hash := md5.Sum([]byte(fmt.Sprintf("%vT10", Fingerprints))) // added a T1 for testing for now as these things are bloody unique in service now
 	// hash := md5.Sum([]byte(fmt.Sprintf("%va", data.GroupLabels.SortedPairs())))
 	return fmt.Sprintf("%x", hash)
 }
