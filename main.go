@@ -148,13 +148,28 @@ func webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = onAlertGroup(data)
+	// Need to raise an incident for each alert on service now
+	newdata := make(map[int]template.Data, len(data.Alerts))
+	for i, alert := range data.Alerts {
+		newdata[i] = data
+		newdata[i].Alerts[0] = alert
 
-	if err != nil {
-		log.Errorf("Error managing incident from alert : %v", err)
-		sendJSONResponse(w, http.StatusInternalServerError, err.Error())
-		return
+		err = onAlertGroup(newdata[i])
+
+		if err != nil {
+			log.Errorf("Error managing incident from alert : %v", err)
+			sendJSONResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
+
+	// err = onAlertGroup(data)
+
+	// if err != nil {
+	// 	log.Errorf("Error managing incident from alert : %v", err)
+	// 	sendJSONResponse(w, http.StatusInternalServerError, err.Error())
+	// 	return
+	// }
 
 	// Returns a 200 if everything went smoothly
 	sendJSONResponse(w, http.StatusOK, "Success")
@@ -296,9 +311,8 @@ func loadSnClient() (ServiceNow, error) {
 }
 
 func onAlertGroup(data template.Data) error {
-
-	log.Infof("Received alert group: Status=%s, GroupLabels=%v, CommonLabels=%v, CommonAnnotations=%v",
-		data.Status, data.GroupLabels, data.CommonLabels, data.CommonAnnotations)
+	log.Infof("Received alert: Status=%s, Labels=%v, Annotations=%v",
+		data.Alerts[0].Status, data.Alerts[0].Labels, data.Alerts[0].Annotations)
 
 	getParams := map[string]string{
 		config.Workflow.IncidentGroupKeyField: getGroupKey(data),
@@ -323,12 +337,12 @@ func onAlertGroup(data template.Data) error {
 		}
 	}
 
-	if data.Status == "firing" {
+	if data.Alerts[0].Status == "firing" {
 		return onFiringGroup(data, updatableIncident)
-	} else if data.Status == "resolved" {
+	} else if data.Alerts[0].Status == "resolved" {
 		return onResolvedGroup(data, updatableIncident)
 	} else {
-		log.Errorf("Unknown alert group status: %s", data.Status)
+		log.Errorf("Unknown alert group status: %s", data.Alerts[0].Status)
 	}
 
 	return nil
@@ -365,6 +379,8 @@ func onResolvedGroup(data template.Data, updatableIncident Incident) error {
 	}
 
 	incidentUpdateParam := filterForUpdate(incidentCreateParam)
+	incidentUpdateParam["u_state"] = "2"                                // set to in-progress - API does not allow us to change to resolved
+	incidentUpdateParam["u_work_notes"] = "Incident has been resolved." // add this work note message
 
 	if updatableIncident == nil {
 		log.Infof("Found no updatable incident for resolved alert group key: %s. No incident will be created/updated.", getGroupKey(data))
@@ -405,6 +421,7 @@ func filterForUpdate(incident Incident) Incident {
 			incidentUpdate[field] = value
 		}
 	}
+	incidentUpdate["u_function"] = "Update"
 	return incidentUpdate
 }
 
@@ -419,7 +436,9 @@ func filterUpdatableIncidents(incidents []Incident) []Incident {
 }
 
 func getGroupKey(data template.Data) string {
-	hash := md5.Sum([]byte(fmt.Sprintf("%v", data.GroupLabels.SortedPairs())))
+	// Use fingerprints as the group key instead
+	// only use fingerprint of first alert
+	hash := md5.Sum([]byte(fmt.Sprintf("%vT1", data.Alerts[0].Fingerprint))) // added a T1 for testing for now as these things are bloody unique in service now
 	return fmt.Sprintf("%x", hash)
 }
 

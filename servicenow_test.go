@@ -72,7 +72,7 @@ func TestNewServiceNowClient_MissingPassword(t *testing.T) {
 
 func TestCreateIncident_OK(t *testing.T) {
 	// Load a simple example of a response coming from ServiceNow
-	incidentTest, err := ioutil.ReadFile("test/incident_response.json")
+	incidentTest, err := ioutil.ReadFile("test/create_incident_response.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestCreateIncident_OK(t *testing.T) {
 		t.Errorf("Error occured on CreateIncident: %s", err)
 	}
 
-	expectedIncidentResponse := IncidentResponse{}
+	expectedIncidentResponse := CreateIncidentResponse{}
 	_ = json.Unmarshal(incidentTest, &expectedIncidentResponse)
 
 	if !reflect.DeepEqual(incident, expectedIncidentResponse.GetResult()) {
@@ -130,7 +130,7 @@ func TestCreateIncident_OK_No_AG(t *testing.T) {
 		t.Errorf("Error occured on CreateIncident: %s", err)
 	}
 
-	expectedIncidentResponse := IncidentResponse{}
+	expectedIncidentResponse := CreateIncidentResponse{}
 	_ = json.Unmarshal(incidentTest, &expectedIncidentResponse)
 
 	if !reflect.DeepEqual(incident, expectedIncidentResponse.GetResult()) {
@@ -265,7 +265,7 @@ func TestGetIncidents_CreateRequestError(t *testing.T) {
 
 func TestUpdateIncident_OK(t *testing.T) {
 	// Load a simple example of a response coming from ServiceNow
-	incidentTest, err := ioutil.ReadFile("test/incident_response.json")
+	incidentTest, err := ioutil.ReadFile("test/incident_update_response.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func TestUpdateIncident_OK(t *testing.T) {
 		t.Errorf("Error occured on UpdateIncident: %s", err)
 	}
 
-	expectedIncidentResponse := IncidentResponse{}
+	expectedIncidentResponse := UpdatedIncidentResponse{}
 	_ = json.Unmarshal(incidentTest, &expectedIncidentResponse)
 
 	if !reflect.DeepEqual(incident, expectedIncidentResponse.GetResult()) {

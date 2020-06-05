@@ -1,0 +1,16 @@
+{
+  "import_set": "ISET0189301",
+  "staging_table": "u_incident",
+  "result": [
+    {
+      "transform_map": "Incident Transform Map",
+      "table": "incident",
+      "display_name": "number",
+      "display_value": "INC0123",
+      "record_link": "https://instance.service-now.com/api/now/table/incident/123",
+      "status": "ignored",
+      "sys_id": "123",
+      "status_message": "Status: Incident updated successfully.;No field values changed"
+    }
+  ]
+}

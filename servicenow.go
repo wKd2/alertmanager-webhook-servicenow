@@ -16,7 +16,8 @@ import (
 
 const (
 	serviceNowBaseURL   = "https://%s.service-now.com"
-	tableAPI            = "%s/api/now/v2/table/%s"
+	tableAPI            = "%s/api/now/table/%s"
+	importAPI           = "%s/api/now/import/%s"
 	hibernatingInstance = "Hibernating Instance"
 )
 
@@ -30,7 +31,18 @@ func (i Incident) GetSysID() string {
 
 // GetNumber returns the number of the incident
 func (i Incident) GetNumber() string {
-	return i["number"].(string)
+	if val, ok := i["number"]; ok {
+		return val.(string)
+	}
+	if val, ok := i["display_value"]; ok {
+		return val.(string)
+	}
+	// If neither of the above work then there's probably an error we wanna see
+	if val, ok := i["status_message"]; ok {
+		return val.(string)
+	}
+
+	return "ERROR"
 }
 
 // GetState returns the state of the incident
@@ -44,6 +56,34 @@ type IncidentResponse map[string]interface{}
 // GetResult returns the incident from the IncidentResponse
 func (ir IncidentResponse) GetResult() Incident {
 	var incident Incident = ir["result"].(map[string]interface{})
+	return incident
+}
+
+// CreateIncidentResponse is a model of an API response contaning one incident
+type CreateIncidentResponse map[string]interface{}
+
+// GetResult returns the incident from the IncidentResponse
+func (ir CreateIncidentResponse) GetResult() Incident {
+	results := ir["result"].([]interface{})
+	incidents := make([]Incident, len(results))
+	for i, result := range results {
+		incidents[i] = result.(map[string]interface{})
+	}
+	var incident Incident = incidents[0]
+	return incident
+}
+
+// UpdatedIncidentResponse is a model of an API response contaning one incident
+type UpdatedIncidentResponse map[string]interface{}
+
+// GetResult returns the incident from the IncidentResponse
+func (ir UpdatedIncidentResponse) GetResult() Incident {
+	results := ir["result"].([]interface{})
+	incidents := make([]Incident, len(results))
+	for i, result := range results {
+		incidents[i] = result.(map[string]interface{})
+	}
+	var incident Incident = incidents[0]
 	return incident
 }
 
@@ -97,7 +137,7 @@ func NewServiceNowClient(instanceName string, userName string, password string) 
 
 // Create a table item in ServiceNow from a post body
 func (snClient *ServiceNowClient) create(table string, body []byte) ([]byte, error) {
-	url := fmt.Sprintf(tableAPI, snClient.baseURL, table)
+	url := fmt.Sprintf(importAPI, snClient.baseURL, table)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating the request. %s", err)
@@ -108,27 +148,21 @@ func (snClient *ServiceNowClient) create(table string, body []byte) ([]byte, err
 }
 
 // get a table item from ServiceNow using a map of arguments
-func (snClient *ServiceNowClient) get(table string, params map[string]string) ([]byte, error) {
+func (snClient *ServiceNowClient) get(table string, body []byte) ([]byte, error) {
 	url := fmt.Sprintf(tableAPI, snClient.baseURL, table)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating the request. %s", err)
 		return nil, err
 	}
-
-	q := req.URL.Query()
-	for key, val := range params {
-		q.Add(key, val)
-	}
-	req.URL.RawQuery = q.Encode()
 
 	return snClient.doRequest(req)
 }
 
 // update a table item in ServiceNow from a post body and a sys_id
 func (snClient *ServiceNowClient) update(table string, body []byte, sysID string) ([]byte, error) {
-	url := fmt.Sprintf(tableAPI+"/%s", snClient.baseURL, table, sysID)
-	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
+	url := fmt.Sprintf(importAPI, snClient.baseURL, table)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating the request. %s", err)
 		return nil, err
@@ -154,6 +188,9 @@ func (snClient *ServiceNowClient) doRequest(req *http.Request) ([]byte, error) {
 	if resp.StatusCode >= 400 {
 		errorMsg := fmt.Sprintf("ServiceNow returned the HTTP error code: %v", resp.StatusCode)
 		log.Error(errorMsg)
+		defer resp.Body.Close()
+		responseBody, _ := ioutil.ReadAll(resp.Body)
+		log.Error(string(responseBody))
 		return nil, errors.New(errorMsg)
 	}
 
@@ -185,19 +222,20 @@ func (snClient *ServiceNowClient) CreateIncident(incidentParam Incident) (Incide
 		return nil, err
 	}
 
-	response, err := snClient.create("incident", postBody)
+	response, err := snClient.create("u_incident", postBody)
 	if err != nil {
 		log.Errorf("Error while creating the incident. %s", err)
 		return nil, err
 	}
 
-	incidentResponse := IncidentResponse{}
+	incidentResponse := CreateIncidentResponse{}
 	err = json.Unmarshal(response, &incidentResponse)
 	if err != nil {
 		log.Errorf("Error while unmarshalling the incident. %s", err)
 		return nil, err
 	}
-
+	// log.Infof("CREATE REQUEST: %s", string(postBody))
+	// log.Infof("CREATE RESPONSE: %s", string(response))
 	createdIncident := incidentResponse.GetResult()
 	log.Infof("Incident %s created", createdIncident.GetNumber())
 
@@ -207,7 +245,14 @@ func (snClient *ServiceNowClient) CreateIncident(incidentParam Incident) (Incide
 // GetIncidents will retrieve an incident from ServiceNow
 func (snClient *ServiceNowClient) GetIncidents(params map[string]string) ([]Incident, error) {
 	log.Infof("Get ServiceNow incidents with params: %v", params)
-	response, err := snClient.get("incident", params)
+
+	postBody, err := json.Marshal(params)
+	if err != nil {
+		log.Errorf("Error while marshalling the incident. %s", err)
+		return nil, err
+	}
+
+	response, err := snClient.get("incident?sysparm_limit=1&active=true&correlation_id="+params["u_correlation_id"], postBody)
 
 	if err != nil {
 		log.Errorf("Error while getting the incident. %s", err)
@@ -234,20 +279,23 @@ func (snClient *ServiceNowClient) UpdateIncident(incidentParam Incident, sysID s
 		return nil, err
 	}
 
-	response, err := snClient.update("incident", postBody, sysID)
+	response, err := snClient.update("u_incident", postBody, sysID)
 	if err != nil {
 		log.Errorf("Error while updating the incident. %s", err)
 		return nil, err
 	}
 
-	incidentResponse := IncidentResponse{}
-	err = json.Unmarshal(response, &incidentResponse)
+	// log.Infof("UPDATE REQUEST: %s", string(postBody))
+	// log.Infof("UPDATE RESPONSE: %s", string(response))
+
+	UpdatedIncidentResponse := UpdatedIncidentResponse{}
+	err = json.Unmarshal(response, &UpdatedIncidentResponse)
 	if err != nil {
 		log.Errorf("Error while unmarshalling the incident. %s", err)
 		return nil, err
 	}
 
-	updatedIncident := incidentResponse.GetResult()
+	updatedIncident := UpdatedIncidentResponse.GetResult()
 	log.Infof("Incident %s updated", updatedIncident.GetNumber())
 
 	return updatedIncident, nil
