@@ -6,7 +6,7 @@ service_now:
 workflow:
   incident_group_key_field: "u_correlation_id"
   no_update_states: [6,7,8]
-  incident_update_fields: ["u_work_notes"]
+  incident_update_fields: ["u_correlation_id","u_work_notes"]
 
 default_incident:
   assignment_group: "{{.CommonAnnotations.assignment_group}}"
@@ -20,14 +20,18 @@ default_incident:
   short_description: "Alerts from group: {{ range $key, $val := .GroupLabels}}{{ $key }}:{{ $val }} {{end}}"
   subcategory: "Missing Part"
   urgency: "{{.CommonAnnotations.urgency}}"
-  u_assignment_group: "TNT_SPT_GLB_TEMTOOLING"
-  u_business_service: "TNT-ServiceDesk"
   u_category: "application"
+  u_business_service: "Server"
+  u_assignment_group: "TEMTOOLING"
+  u_impact: "3"
+  u_urgency: "3"
+  # ALWAYS USE INDEX 0 OF ALERTS OTHERWISE YOU WILL GET WRONG RESULTS!!
+  u_short_description: "ALERT: {{with index .Alerts 0}}{{.Annotations.message}}{{end}} ({{.CommonLabels.cluster}})"
+  u_description: "Alerts list:\n\n{{with index .Alerts 0}}[{{ .Status }}] {{.StartsAt}} {{.Labels.alertname}}\n{{.Annotations.message}}\n\n{{ end }}\n\nView all current alerts at {{.ExternalURL}}"
   u_contact_type: "event_alert"
   u_correlation_display: "api"
-  u_description: "Received alerts from AlertManager at {{.ExternalURL}} (\"{{.Receiver}}\" receiver configuration) with common descriptions:\n\n{{.CommonAnnotations.description}}"
   u_function: "Create"
-  u_impact: "3"
-  u_short_description: "Alerts from group: {{ range $key, $val := .GroupLabels}}{{ $key }}:{{ $val }} {{end}}"
+  # u_configuration_item: "ZYUMTYCOPW01"
+  u_symptom: "Error"
   u_state: "1"
-  u_urgency: "3"
+  u_caller: "my_id"

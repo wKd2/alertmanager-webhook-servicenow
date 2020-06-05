@@ -37,8 +37,12 @@ func (i Incident) GetNumber() string {
 	if val, ok := i["display_value"]; ok {
 		return val.(string)
 	}
+	// If neither of the above work then there's probably an error we wanna see
+	if val, ok := i["status_message"]; ok {
+		return val.(string)
+	}
 
-	return ""
+	return "ERROR"
 }
 
 // GetState returns the state of the incident
@@ -134,7 +138,6 @@ func NewServiceNowClient(instanceName string, userName string, password string) 
 // Create a table item in ServiceNow from a post body
 func (snClient *ServiceNowClient) create(table string, body []byte) ([]byte, error) {
 	url := fmt.Sprintf(importAPI, snClient.baseURL, table)
-
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating the request. %s", err)
@@ -187,7 +190,7 @@ func (snClient *ServiceNowClient) doRequest(req *http.Request) ([]byte, error) {
 		log.Error(errorMsg)
 		defer resp.Body.Close()
 		responseBody, _ := ioutil.ReadAll(resp.Body)
-		log.Info(string(responseBody))
+		log.Error(string(responseBody))
 		return nil, errors.New(errorMsg)
 	}
 
@@ -234,7 +237,6 @@ func (snClient *ServiceNowClient) CreateIncident(incidentParam Incident) (Incide
 	// log.Infof("CREATE REQUEST: %s", string(postBody))
 	// log.Infof("CREATE RESPONSE: %s", string(response))
 	createdIncident := incidentResponse.GetResult()
-	// need to do something with status_message
 	log.Infof("Incident %s created", createdIncident.GetNumber())
 
 	return createdIncident, nil
